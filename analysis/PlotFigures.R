@@ -265,17 +265,19 @@ Data <- read.table("analysis/CompareDiversity/out/variants-per-sample-all.txt",
          StudySample=paste(Study,Sample,sep="\n"))
 Data$StudySubtype <- factor(Data$StudySubtype,
                             levels=rev(c("flu-Dinis\nH3N2","flu-Dinis\npdmH1N1","flu-Debbink\nH3N2",
-                                     "flu-Poon\nH3N2","flu-Poon\npdmH1N1")))
+                                         "flu-McCrone\nH3N2","flu-McCrone\npdmH1N1",
+                                         "flu-Poon\nH3N2","flu-Poon\npdmH1N1")))
 # Format study names to display the publication information.
-PubYears <- c("2016","2016","2017")
-names(PubYears) <- c("flu-Poon","flu-Dinis","flu-Debbink")
+PubYears <- c("2016","2016","2017","2018")
+names(PubYears) <- c("flu-Poon","flu-Dinis","flu-Debbink","flu-McCrone")
 Data <- Data %>% 
   separate(Study, into=c("Virus","Author"), sep="-", remove=FALSE) %>%
   mutate(PubYear=PubYears[Study]) %>%
   mutate(DisplayStudySubtype=paste0(Author," et al. ",PubYear,"\n",Subtype))
 Data$DisplayStudySubtype <- factor(Data$DisplayStudySubtype,
                                    levels=rev(c("Dinis et al. 2016\nH3N2", "Dinis et al. 2016\npdmH1N1",
-                                            "Debbink et al. 2017\nH3N2","Poon et al. 2016\nH3N2",
+                                            "Debbink et al. 2017\nH3N2", "McCrone et al. 2018\nH3N2",
+                                            "McCrone et al. 2018\npdmH1N1","Poon et al. 2016\nH3N2",
                                             "Poon et al. 2016\npdmH1N1")))
 
 
@@ -295,20 +297,22 @@ Data <- read.table("analysis/CompareDiversity/out/variants-all.txt",
   mutate(StudySubtype=paste(Study,Subtype,sep="\n"),
          StudySample=paste(Study,Sample,sep="\n"))
 Data$StudySubtype <- factor(Data$StudySubtype,
-                            levels=c("flu-Dinis\nH3N2","flu-Dinis\npdmH1N1","flu-Debbink\nH3N2",
-                                     "flu-Poon\nH3N2","flu-Poon\npdmH1N1"))
+                            levels=rev(c("flu-Dinis\nH3N2","flu-Dinis\npdmH1N1","flu-Debbink\nH3N2",
+                                         "flu-McCrone\nH3N2","flu-McCrone\npdmH1N1",
+                                         "flu-Poon\nH3N2","flu-Poon\npdmH1N1")))
 
 # Format study names to display the publication information.
-PubYears <- c("2016","2016","2017")
-names(PubYears) <- c("flu-Poon","flu-Dinis","flu-Debbink")
+PubYears <- c("2016","2016","2017","2018")
+names(PubYears) <- c("flu-Poon","flu-Dinis","flu-Debbink","flu-McCrone")
 Data <- Data %>% 
   separate(Study, into=c("Virus","Author"), sep="-", remove=FALSE) %>%
   mutate(PubYear=PubYears[Study]) %>%
-  mutate(DisplayStudySubtype=paste0(Author," et al. ",PubYear,"\n",Subtype))
+  mutate(DisplayStudySubtype=paste0(Author," et al. ",PubYear,", ",Subtype))
 Data$DisplayStudySubtype <- factor(Data$DisplayStudySubtype,
-                                   levels=c("Dinis et al. 2016\nH3N2", "Dinis et al. 2016\npdmH1N1",
-                                            "Debbink et al. 2017\nH3N2","Poon et al. 2016\nH3N2",
-                                            "Poon et al. 2016\npdmH1N1"))
+                                   levels=c("Dinis et al. 2016, H3N2", "Dinis et al. 2016, pdmH1N1",
+                                            "Debbink et al. 2017, H3N2","McCrone et al. 2018, H3N2",
+                                            "McCrone et al. 2018, pdmH1N1","Poon et al. 2016, H3N2",
+                                            "Poon et al. 2016, pdmH1N1"))
 
 # Output the number of genome sites in each study and subtype
 # at which more than half of samples display within-host variation.
@@ -333,6 +337,7 @@ p_Shared <- Data %>% group_by(DisplayStudySubtype, NumSamplesSequenced, GenomePo
   scale_x_continuous(limits=c(0,13600), expand=c(0,0),
                      breaks=GenomeAverage$Midpoint,
                      labels=c("PB2","PB1","PA","HA","NP","NA","M","NS")) +
+  scale_y_continuous(limits=c(0,1), breaks=c(0,0.5,1)) +
   THEME_ALL
 p_Shared
 save_plot(paste0(outdir,"CompareDiversity-SharedVariants.pdf"), p_Shared,

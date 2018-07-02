@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script is meant to be run from the top level of the Github repository.
-# Script organizes raw sequencing files for Dinis et al. 2016.
+# Script organizes raw sequencing files for Debbink et al. 2017.
 
 # Input paths.
 BatchSRADownloadFASTQ="pipelines/Batch-SRADownloadFASTQ.sh"

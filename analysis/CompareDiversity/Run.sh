@@ -34,5 +34,16 @@ cat nobackup/DownloadDataCallVariants/flu-Debbink/variants/*-H3N2.variants \
 # This study includes sequencing replicates for most samples.
 # Replicate variants were calculated in the PoonReconstruction analysis folder.
 
+# McCrone et al. 2018
+# This study contains sequences from H3N2 and pdmH1N1 samples.
+# There are no sequencing replicates available,
+# so simply concatenate the variant files generated for each sample.
+# Note that some samples are related because they originate from the same patient
+# or household.
+cat nobackup/DownloadDataCallVariants/flu-McCrone/variants/*-H3N2.variants \
+  > analysis/${analysis}/out/flu-McCrone-H3N2.variants
+cat nobackup/DownloadDataCallVariants/flu-McCrone/variants/*-pdmH1N1.variants \
+  > analysis/${analysis}/out/flu-McCrone-pdmH1N1.variants
+
 # Combine all variant call files, as well as estimates of mapping rates.
 Rscript analysis/${analysis}/CombineVariants.R

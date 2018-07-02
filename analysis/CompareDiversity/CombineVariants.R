@@ -33,7 +33,7 @@ GenomepdmH1N1 <- read.fasta("reference/flu-pdmH1N1/pdmH1N1-California-2009.fasta
 # This study sequenced the HA gene from 114 H3N2 and pdmH1N1 patients.
 
 # Based on the 1000 reads mapped in order to infer sample subtype,
-# calculate the approximate mapping percentage of the Debbink samples.
+# calculate the approximate mapping percentage of the Dinis samples.
 DinisMapping <- read.table("analysis/DownloadDataCallVariants/flu-Dinis-subtypes.data",
                              header=FALSE, stringsAsFactors = FALSE) %>%
   `colnames<-`(c("Sample","Subtype","MappingRate")) %>%
@@ -245,19 +245,98 @@ if((nrow(DebbinkVariantsPerSample) != nrow(DebbinkSamples)) |
   print("Error in tallying variants per sample.")
 }
 
+# McCrone et al. 2018 -------------------------------------------------------
+
+# Process variants from the McCrone et al. 2018 study.
+# This study sequenced the entire flu genome from 200 H3N2 and pdmH1N1 patients.
+# This study also includes sequences from three plasmid controls and an unknown viral sample.
+# Exclude these four samples from downstream analyses.
+McCroneControls <- c("Cali_pool","PC1A","Perth_mp","Vic_pool")
+
+# Based on the 1000 reads mapped in order to infer sample subtype,
+# calculate the approximate mapping percentage of the McCrone samples.
+McCroneMapping <- read.table("analysis/DownloadDataCallVariants/flu-McCrone-subtypes.data",
+                           header=FALSE, stringsAsFactors = FALSE) %>%
+  `colnames<-`(c("Sample","Subtype","MappingRate")) %>%
+  mutate(Study="flu-McCrone")
+
+# Determine the total number of H3N2 and pdmH1N1 samples sequenced.
+# Note that under the current workflow, only samples with variants
+# show in the list of variants.
+# Exclude the three plasmid controls and the one unknown virus.
+McCroneSamplesheet <- read.table("data/metadata/flu-McCrone/samplesheet-refs.txt",
+                               header=FALSE, stringsAsFactors = FALSE) %>%
+  `colnames<-`(SamplesheetCols) %>% group_by(Subtype) %>%
+  filter(!Sample %in% McCroneControls) %>%
+  summarize(NumSamples=n())
+
+# Read in the McCrone H3N2 and pdmH1N1 variants.
+McCroneH3N2 <- read.table(paste0(outdir,"flu-McCrone-H3N2.variants"),
+                        header=FALSE, stringsAsFactors = FALSE) %>%
+  `colnames<-`(VariantCols) %>%
+  filter(!Sample %in% McCroneControls) %>%
+  mutate(Study="flu-McCrone", Subtype="H3N2",
+         NumSamplesSequenced=(McCroneSamplesheet %>% filter(Subtype=="H3N2"))$NumSamples,
+         BpSequenced=ifelse(Subtype=="H3N2",sum(sapply(GenomeH3N2,length)),
+                            sum(sapply(GenomepdmH1N1,length))))
+
+McCronepdmH1N1 <- read.table(paste0(outdir,"flu-McCrone-pdmH1N1.variants"),
+                           header=FALSE, stringsAsFactors = FALSE) %>%
+  `colnames<-`(VariantCols) %>% 
+  filter(!Sample %in% McCroneControls) %>%
+  mutate(Study="flu-McCrone", Subtype="pdmH1N1",
+         NumSamplesSequenced=(McCroneSamplesheet %>% filter(Subtype=="pdmH1N1"))$NumSamples,
+         BpSequenced=ifelse(Subtype=="H3N2",sum(sapply(GenomeH3N2,length)),
+                            sum(sapply(GenomepdmH1N1,length))))
+
+# Determine the number of variants per sample.
+# Make sure to include the samples that have no variants.
+# First, obtain the full list of samples sequenced in this study
+# and create a dummy dataframe with NumVariants=0 for each sample.
+McCroneSamples <- read.table("data/metadata/flu-McCrone/samplesheet-refs.txt",
+                           header=FALSE, stringsAsFactors = FALSE) %>%
+  `colnames<-`(SamplesheetCols) %>% dplyr::select(Sample, Subtype) %>%
+  filter(!Sample %in% McCroneControls) %>%
+  group_by(Subtype) %>% 
+  mutate(NumVariants=0, NumSamplesSequenced=n(),
+         BpSequenced=ifelse(Subtype=="H3N2",sum(sapply(GenomeH3N2,length)),
+                            sum(sapply(GenomepdmH1N1,length))))
+# Create a list of variants per sample from the list of variants.
+# Note that this will not include samples in which no variants were called.
+McCroneVariantsPerSample <- rbind(
+  McCroneH3N2 %>% group_by(Sample, Subtype, NumSamplesSequenced, BpSequenced) %>% 
+    summarize(NumVariants=n()),
+  McCronepdmH1N1 %>% group_by(Sample, Subtype, NumSamplesSequenced, BpSequenced) %>%
+    summarize(NumVariants=n()))
+# Use the anti-join command to determine which samples have no variants.
+# Use the union command to join this list of samples to the main list of samples.
+McCroneVariantsPerSample <- union(McCroneVariantsPerSample,
+                                anti_join(McCroneSamples, McCroneVariantsPerSample, 
+                                          by=c("Sample"="Sample"))) %>%
+  mutate(Study="flu-McCrone")
+# Verify that each sample is accounted for uniquely in this count of
+# variants per sample.
+if((nrow(McCroneVariantsPerSample) != nrow(McCroneSamples)) |
+   (n_distinct(McCroneVariantsPerSample$Sample) != 
+    n_distinct(McCroneVariantsPerSample$Sample))){
+  print("Error in tallying variants per sample.")
+}
+
 # Combine all variant files. ----------------------------------------------
 
 Variants <- bind_rows(DinisH3N2, DinispdmH1N1,
                       PoonH3N2, PoonpdmH1N1,
-                      DebbinkH3N2)
+                      DebbinkH3N2, McCroneH3N2, McCronepdmH1N1)
 
 Mapping <- bind_rows(DinisMapping,
                      PoonMapping,
-                     DebbinkMapping)
+                     DebbinkMapping,
+                     McCroneMapping)
 
 VariantsPerSample <- bind_rows(DinisVariantsPerSample,
                                PoonVariantsPerSample,
-                               DebbinkVariantsPerSample)
+                               DebbinkVariantsPerSample,
+                               McCroneVariantsPerSample)
 
 # Export lists of variants and mapping rates.
 write.table(Variants, paste0(outdir,"variants-all.txt"),

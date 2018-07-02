@@ -26,3 +26,8 @@ analysis/${analysis}/align-call-variants-flu-Dinis.sh
 # Raw sequencing data was obtained from the SRA.
 analysis/${analysis}/download-flu-Debbink.sh
 analysis/${analysis}/align-call-variants-flu-Debbink.sh
+
+# McCrone et al. 2018, eLife
+# Raw sequencing data was obtained from the SRA.
+analysis/${analysis}/download-flu-McCrone.sh
+analysis/${analysis}/align-call-variants-flu-McCrone.sh
