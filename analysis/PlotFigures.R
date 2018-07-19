@@ -353,3 +353,144 @@ p_Compare <- plot_grid(p_NumVariants + coord_flip(), p_Shared,
 p_Compare
 save_plot(paste0(outdir, "CompareDiversity.pdf"), p_Compare,
           base_width=7, base_height=7)
+
+
+# Analyze read 1 and read 2 separately ------------------------------------
+
+# Import the raw variant frequency data for Figure 2.
+# This particular figure analyzes read 1 and read 2 separately..
+# I identified all sites in H3N2 HA at which variants were present at a frequency
+# of at least 0.03 and at sites with coverage at least 200
+# in both sequencing replicates of the ORIGINAL dataset
+# (containing both read 1 and read 2 reads).
+# I then extracted the raw read count data for those sites from all H3N2 samples,
+# and averaged their frequencies in the two sequencing replicates.
+# Note that samples without two sequencing replicates are excluded
+# from this analysis.
+Data <- read.table("analysis/CompareR1R2/out/Figure2Frequencies.txt",
+                   header=TRUE, stringsAsFactors = FALSE)
+Data$Strain <- factor(Data$Strain, levels=H3N2SampleOrder)
+Data$HouseholdColor <- sapply(Data$Strain, function(x) 
+  H3N2SampleColor[which(H3N2SampleOrder==x)][1])
+Codons <- Data %>% dplyr::select(Codon, GenomePos) %>% distinct() %>% filter(Codon<336)
+GenomePosToCodons <- as.character(Codons$Codon)
+names(GenomePosToCodons) <- Codons$GenomePos
+
+PlotVariantFreqs <- function(read){
+  p <- ggplot(Data %>% filter(Freq>0.01, !is.na(Strain), Codon<336, Read==read)) +
+    geom_bar(aes(x=factor(Strain), y=1, fill=(HouseholdColor)), stat="identity",
+             width=1, alpha=0.2) +
+    geom_hline(yintercept=0) +
+    geom_line(aes(x=Strain, y=Freq, color=factor(Base), group=factor(Base))) +
+    geom_point(aes(x=Strain, y=Freq, color=factor(Base),
+                   shape=factor(Freq>0.03)), size=0.8, fill="white") +
+    facet_wrap(~GenomePos, ncol=2, dir="v", strip.position="right",
+               labeller=labeller(GenomePos=GenomePosToCodons),
+               scale="free_y") +
+    scale_shape_manual(values=c(1,19), name="Frequency",
+                       labels=c(">1% and <3%",">3%")) +
+    scale_color_manual(values=DNAPALETTE, name="") +
+    scale_y_continuous(expand=c(0,0), limits=c(0,1)) +
+    theme(axis.text.x=element_text(size=4, angle=90, vjust=0.5),
+          axis.text.y=element_text(size=4),
+          axis.title=element_text(size=7),
+          strip.text=element_text(size=5),
+          legend.text=element_text(size=5),
+          legend.position=c(0.65,-0.04),
+          legend.direction="horizontal",
+          legend.title=element_text(size=5),
+          legend.spacing=unit(0,"cm"),
+          legend.margin=margin(t = 10, r = 0, b = 0, l = 0, unit = "pt"),
+          legend.box="vertical") +
+    scale_fill_identity() +
+    xlab("Study subject") + ylab("Frequency (%)")
+  p
+  save_plot(paste0(outdir,"ReconstructedFigure2-",read,".pdf"),p,
+            base_width=7, base_height=5)
+}
+
+sapply(c("R1","R2"), PlotVariantFreqs)
+
+
+# Analyze diversity on read 1 and read 2 separately -----------------------
+
+# Read in the number of variants in each sample.
+# This number is calculated separately for read 1 alone, read 2 alone,
+# and both read 1 and read 2 together.
+
+Data <- read.table("analysis/CompareR1R2/out/variants-per-sample-all.txt",
+                   header=TRUE, stringsAsFactors = FALSE) %>%
+  mutate(StudySubtype=paste(Study,Subtype,sep="\n"),
+         StudySample=paste(Study,Sample,sep="\n"))
+# Format analysis names for display.
+Reads <- c("all reads", "read 1\nonly","read 2\nonly")
+names(Reads) <- c("R1R2","R1","R2")
+Data <- Data %>% mutate(DisplayRead=Reads[Read])
+Data$DisplayRead <- factor(Data$DisplayRead,
+                           levels=Reads)
+
+# Plot the number of variants per sample identified in each study.
+p_NumVariants <- ggplot(Data %>% filter(Subtype=="H3N2")) + 
+  geom_boxplot(aes(x=DisplayRead, y=NumVariants/(BpSequenced/1000)),
+               outlier.size=0.5, size=0.5) +
+  xlab("Poon et al. 2016, H3N2") + 
+  ylab("Number of within-host variants\nper kB sequenced") +
+  THEME_ALL
+p_NumVariants
+save_plot(paste0(outdir, "CompareR1R2-NumVariants.pdf"),p_NumVariants)
+
+# Read in variants identified in all datasets.
+Data <- read.table("analysis/CompareR1R2/out/variants-all.txt",
+                   header=TRUE, stringsAsFactors = FALSE) %>%
+  mutate(StudySubtype=paste(Study,Subtype,sep="\n"),
+         StudySample=paste(Study,Sample,sep="\n"))
+# Format analysis names for display.
+Reads <- c("Poon et al. 2016, H3N2, all reads", 
+           "Poon et al. 2016, H3N2, read 1 only",
+           "Poon et al. 2016, H3N2, read 2 only")
+names(Reads) <- c("R1R2","R1","R2")
+Data <- Data %>% mutate(DisplayRead=Reads[Read])
+Data$DisplayRead <- factor(Data$DisplayRead,
+                           levels=Reads)
+
+# Output the number of genome sites in each study and subtype
+# at which more than half of samples display within-host variation.
+SharedVariation <- Data %>% group_by(StudySubtype, Read, NumSamplesSequenced, GenomePos) %>%
+  summarize(NumVariableSamples=n_distinct(Sample)) %>% ungroup() %>%
+  group_by(StudySubtype, Read, NumSamplesSequenced) %>%
+  summarize(NumSharedVariableSites=sum(NumVariableSamples > (NumSamplesSequenced)/2)) %>%
+  ungroup() %>% separate(StudySubtype, into=c("Study", "Subtype"), sep="\n")
+write.table(SharedVariation, paste0(outdir, "SitesOfSharedVariation-R1R2.txt"),
+            quote=FALSE, row.names=FALSE)
+
+# Plot shared variation across the genome for each study.
+p_Shared <- Data %>% filter(Subtype=="H3N2") %>%
+  group_by(DisplayRead, NumSamplesSequenced, GenomePos, Chr) %>% 
+  summarize(NumSamples=n_distinct(Sample)) %>%
+  ggplot() + geom_bar(aes(x=GenomePos, y=NumSamples/NumSamplesSequenced,
+                          color=factor(Chr)), stat="identity") +
+  facet_wrap(~DisplayRead, ncol=1, scales="free") +
+  ylim(0,1) + xlab("Genome position (bp)") + 
+  ylab("Proportion of samples in study\nwith within-host variation") +
+  scale_color_manual(values=rep(c(PALETTE[1],PALETTE[2]),4), name="Gene") +
+  guides(color=FALSE) +
+  scale_x_continuous(limits=c(0,13600), expand=c(0,0),
+                     breaks=GenomeAverage$Midpoint,
+                     labels=c("PB2","PB1","PA","HA","NP","NA","M","NS")) +
+  scale_y_continuous(limits=c(0,1), breaks=c(0,0.5,1)) +
+  THEME_ALL
+p_Shared
+save_plot(paste0(outdir,"CompareR1R2-SharedVariants.pdf"), p_Shared,
+          base_width=5, base_height=5)
+save_plot(paste0(outdirpres,"CompareR1R2-SharedVariants.pdf"), 
+          p_Shared+THEME_PRES + theme(axis.text=element_text(size=7),
+                                      strip.text=element_text(size=11, face="bold")),
+          base_width=9, base_height=6)
+
+p_Compare <- plot_grid(p_NumVariants, p_Shared, 
+                       ncol=2, rel_widths=c(2,5), labels=c("A","B"),
+                       label_size=8)
+p_Compare
+save_plot(paste0(outdir, "CompareR1R2-Diversity.pdf"), p_Compare,
+          base_width=7, base_height=3)
+

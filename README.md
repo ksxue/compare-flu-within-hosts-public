@@ -17,6 +17,7 @@ The directory is organized as follows:
 	|  |- PoonReconstruction		# Map reads from Poon et al. study as single-end reads and analyze diversity.
 	|  |- CompareDiversity			# Call variants at a comparable threshold in all datasets and compare their abundance.
 	|  |- ReadPairs					# Analyze read pairing in the Poon et al. raw data.
+	|  |- CompareR1R2				# Compare genetic diversity on read 1 and read 2.
 	|  |- figures					# Generate the figures for the accompanying manuscript.
 	|- data				# Small data files, primarily associated with data organization.
 	|  |- metadata					# Contains metadata and organizational tracking information for each study.
