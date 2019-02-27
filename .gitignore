@@ -46,6 +46,8 @@ Ignore everything except things listed explicitly below
 
 # Don't ignore files in the "data" directory, which are small, simplified data files.
 !**/data/**
+# Track variant-call files in the R1R2 output directory.
+!analysis/CompareR1R2/out/**
 
 # Ignore any files beginning with .
 .*
